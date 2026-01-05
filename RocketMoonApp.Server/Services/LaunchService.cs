@@ -2,7 +2,6 @@ using Microsoft.Extensions.Logging;
 using RocketMoonApp.Server.Models;
 using System.Text.Json;
 
-
 namespace RocketMoonApp.Server.Services
 {
     public class LaunchService
@@ -16,17 +15,17 @@ namespace RocketMoonApp.Server.Services
             _logger = logger;
         }
 
-        public async Task<List<Launch>> GetLaunchesFromTimeframeAsync(DateTime startingDate, DateTime endingDate)
+        public virtual async Task<List<Launch>> GetLaunchesFromTimeframeAsync(DateTime startingDate, DateTime endingDate)
         {
             try
             {
                 _logger.LogInformation("Fetching launches from {StartingDate} to {EndingDate}", startingDate, endingDate);
 
-                List<Launch> launches = new List<Launch>();
+                List<Launch> launches = new();
                 var startDate = startingDate.ToString("yyyy-MM-dd");
                 var endDate = endingDate.ToString("yyyy-MM-dd");
 
-                var url = $"https://ll.thespacedevs.com/2.3.0/launches/?net__gte={startDate}&net__lte={endDate}&limit=100";
+                var url = $"https://ll.thespacedevs.com/2.3.0/launch/?net__gte={startDate}&net__lte={endDate}&limit=100";
 
                 JsonElement data;
 
@@ -35,9 +34,9 @@ namespace RocketMoonApp.Server.Services
                     _logger.LogInformation("Making API call to URL: {Url}", url);
 
                     var response = await _httpClient.GetStringAsync(url);
-                    
+
                     data = JsonSerializer.Deserialize<JsonElement>(response);
-                    
+
                     var newlaunches = data.GetProperty("results").EnumerateArray()
                         .Select(launch => new Launch
                         {
@@ -48,10 +47,11 @@ namespace RocketMoonApp.Server.Services
                             {
                                 Id = launch.GetProperty("pad").GetProperty("location").GetProperty("id").GetInt32(),
                                 CountryName = launch.GetProperty("pad").GetProperty("country").GetProperty("name").GetString() ?? string.Empty,
-                                Latitude = launch.GetProperty("pad").GetProperty("latitude").GetDouble().ToString() ?? string.Empty,
-                                Longitude = launch.GetProperty("pad").GetProperty("longitude").GetDouble().ToString() ?? string.Empty,
+                                Latitude = launch.GetProperty("pad").GetProperty("latitude").GetDouble().ToString(),
+                                Longitude = launch.GetProperty("pad").GetProperty("longitude").GetDouble().ToString(),
                             },
-                            Status = launch.GetProperty("status").GetProperty("abbrev").GetString() ?? "Unknown"
+                            Status = launch.GetProperty("status").GetProperty("abbrev").GetString() ?? "Unknown",
+                            WasSuccessful = MapToSuccess(launch.GetProperty("status").GetProperty("abbrev").GetString())
                         })
                         .ToList();
 
@@ -80,6 +80,28 @@ namespace RocketMoonApp.Server.Services
                 _logger.LogError(ex, "An unexpected error occurred while fetching launches");
                 return new List<Launch>();
             }
+        }
+
+        private static bool? MapToSuccess(string? statusAbbreviation)
+        {
+            if (string.IsNullOrWhiteSpace(statusAbbreviation))
+            {
+                return null;
+            }
+
+            var normalized = statusAbbreviation.ToLowerInvariant();
+
+            if (normalized.Contains("success"))
+            {
+                return true;
+            }
+
+            if (normalized.Contains("failure"))
+            {
+                return false;
+            }
+
+            return null;
         }
     }
 }
