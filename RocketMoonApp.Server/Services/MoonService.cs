@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using RocketMoonApp.Server.Models;
+using System.Globalization;
 using System.Text.Json;
 
 namespace RocketMoonApp.Server.Services
@@ -15,7 +16,7 @@ namespace RocketMoonApp.Server.Services
             _logger = logger;
         }
 
-        public async Task<List<MoonPhase>> GetMoonPhasesForYearAsync(int year)
+        public virtual async Task<List<MoonPhase>> GetMoonPhasesForYearAsync(int year)
         {
             try
             {
@@ -59,13 +60,13 @@ namespace RocketMoonApp.Server.Services
             }
         }
 
-        public async Task<MoonPhase> GetMoonPhaseForDayAsync(DateTime date)
+        public virtual async Task<MoonPhase> GetMoonPhaseForDayAsync(DateTime date)
         {
             try
             {
                 _logger.LogInformation("Fetching moon phase for date {Date}", date);
 
-                var formattedDate = date.ToString("yyyy-MM-dd");
+                var formattedDate = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 var url = $"https://aa.usno.navy.mil/api/rstt/oneday?date={formattedDate}";
 
                 _logger.LogInformation("Making API call to URL: {Url}", url);
